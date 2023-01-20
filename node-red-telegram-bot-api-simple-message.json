@@ -1,0 +1,989 @@
+[
+    {
+        "id": "0832ecba3b97dcae",
+        "type": "subflow",
+        "name": "Telegram API sender",
+        "info": "## Descrizione\r\n> Invia messaggi a Telegram\r\n\r\n# Impostazioni da messaggio\r\n> Il messaggio può contenere una o più opzioni in base al metodo e deve essere così strutturato:\r\n - msg.forward = {}\r\n - msg.forward.chat_id = String || Number (Id chat)\r\n - msg.forward.content = Object (Contenuto del messaggio, testo, foto, sticker...)\r\n - msg.forward.method = String (https://core.telegram.org/bots/api#available-methods)\r\n - msg.forward.options = Object (Deve contienere tutte le opzioni in base al metodo)\r\n> Oppure:\r\n - msg.url = String (Url completa)\r\n\r\n### Links\r\n - https://core.telegram.org/bots/api#message\r\n - https://core.telegram.org/bots/api#available-methods\r\n - https://core.telegram.org/bots/api#inlinekeyboardmarkup",
+        "category": "Telegram Bot API",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "9aa68a1366b9dca9"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 1220,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "ee8b437b7edf8ab4",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 440,
+                "y": 150,
+                "wires": [
+                    {
+                        "id": "27b489c275e71fd2",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "all_status_node",
+                "type": "bool",
+                "value": "false",
+                "ui": {
+                    "icon": "font-awesome/fa-info-circle",
+                    "label": {
+                        "en-US": "All status node"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "send_action",
+                "type": "bool",
+                "value": "false",
+                "ui": {
+                    "icon": "font-awesome/fa-send",
+                    "label": {
+                        "en-US": "Chat Action"
+                    },
+                    "type": "checkbox"
+                }
+            }
+        ],
+        "meta": {
+            "module": "node-red-telegram-bot-api-sender",
+            "version": "1.0.0",
+            "author": "Bruno Leonardi <b.leonardi78@gmail.com>",
+            "desc": "Invia i messaggi a Telegram",
+            "keywords": "telegram, bot, api, messaging, messages, message, sender",
+            "license": "MIT"
+        },
+        "color": "#3FADB5",
+        "inputLabels": [
+            "Request"
+        ],
+        "outputLabels": [
+            "Response",
+            "Passthru"
+        ],
+        "icon": "font-awesome/fa-cloud-upload",
+        "status": {
+            "x": 1180,
+            "y": 90,
+            "wires": [
+                {
+                    "id": "518c85e6cf2edf53",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "8bbf46b2a2110103",
+        "type": "http request",
+        "z": "0832ecba3b97dcae",
+        "name": "Telegram server",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "x": 730,
+        "y": 40,
+        "wires": [
+            [
+                "8c789a3af36443be"
+            ]
+        ]
+    },
+    {
+        "id": "5933d3c971e2bfc2",
+        "type": "status",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "scope": [
+            "8c789a3af36443be",
+            "c563b326653f07e8",
+            "3d83d2843a98131f"
+        ],
+        "x": 1005,
+        "y": 90,
+        "wires": [
+            [
+                "518c85e6cf2edf53"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "a788b2b707b5b14c",
+        "type": "catch",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "scope": [
+            "8bbf46b2a2110103",
+            "8c789a3af36443be",
+            "c563b326653f07e8",
+            "ee8b437b7edf8ab4",
+            "a3a3c6467be67fba"
+        ],
+        "uncaught": false,
+        "x": 855,
+        "y": 90,
+        "wires": [
+            [
+                "18569120cbc6181e"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "8c789a3af36443be",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Response",
+        "func": "/**\n * ////////////////////////////////////////////////////\n * Telegram Bot API sender\n * Subflow per Node-Red\n * node-telegram-bot-api-sender\n * ////////////////////////////////////////////////////\n * Author: Bruno Leonardi <b.leonardi78@gmail.com>\n * ////////////////////////////////////////////////////\n */\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//codice stato risposta\nvar status = msg.statusCode || 0\n\n//messaggio di errore\nvar error_message = null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//verifico se esiste il payload\nif (msg.payload) {\n    try {\n        //lo converto in oggetto\n        msg.payload = (typeof msg.payload === 'string') ? JSON.parse(msg.payload) : msg.payload\n    } catch (error) {\n        status = 0\n        msg.payload = {\n            ok: false,\n            error_code: 0,\n            description: \"Error JSONParse convertion\"\n        }\n    }\n\n    //controllo se è una risposta di telegram\n    //payload: \"{\"ok\":true,\"result\":[]}\"\n    if (msg.payload.ok === undefined) {\n        status = 0\n        msg.payload = {\n            ok: false,\n            error_code: 0,\n            description: \"It is not a Telegram message\"\n        }\n    }\n} else {\n    status = 0\n    msg.payload = {\n        ok: false,\n        error_code: 0,\n        description: \"Payload message not exists\"\n    }\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//invio esito\nif (status == 200) {\n    node.status({ fill: \"blue\", shape: \"dot\", text: \"Response Ok\" })\n    node.status({ fill: \"green\", shape: \"ring\", text: \"Ready\" })\n    return { ok: true, status: status, request: msg.url, response: msg.payload.result }\n} else {\n    //https://core.telegram.org/api/errors\n    if (msg.payload) {\n        error_message = msg.payload.description || \"Unknown error\"\n    } else {\n        error_message = \"Unknown error\"\n    }\n    \n    error_message = `${status} | ${error_message}`\n    error_message = new Error(error_message)\n    node.status({ fill: \"red\", shape: \"dot\", text: error_message.message })\n    node.error(error_message, msg)\n    return { ok: false, status: status, request: msg.url, response: error_message }\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\nif (env.get(\"all_status_node\")) {\n    node.status({ fill: \"blue\", shape: \"ring\", text: \"Initialized\" })\n    node.status({ fill: \"blue\", shape: \"dot\", text: \"Initialized\" })\n    node.status({ fill: \"green\", shape: \"ring\", text: \"Ready\" })\n} ",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 40,
+        "wires": [
+            [
+                "ee8b437b7edf8ab4"
+            ]
+        ],
+        "inputLabels": [
+            "Http response"
+        ],
+        "outputLabels": [
+            "Response"
+        ]
+    },
+    {
+        "id": "518c85e6cf2edf53",
+        "type": "delay",
+        "z": "0832ecba3b97dcae",
+        "name": "Rate limit",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "minutes",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1115,
+        "y": 90,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "18569120cbc6181e",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "error.message",
+        "func": "node.error(msg, msg)",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 945,
+        "y": 90,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "c563b326653f07e8",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Request",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n/**\n * Tools Class Collections Javascript for Node-RED\n */\nconst Tools = global.get('Tools.class')\nconst js = new Tools(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n/**\n * ////////////////////////////////////////////////////\n * Telegram Bot API sender\n * Subflow per Node-Red\n * node-telegram-bot-api-sender\n * ////////////////////////////////////////////////////\n * Author: Bruno Leonardi <b.leonardi78@gmail.com>\n * ////////////////////////////////////////////////////\n */\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nvar url = null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nconst global_save = (msg.global_save === undefined) ? true : msg.global_save\nflow.set('global_save', global_save)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nif (msg.forward) {\n    url = Bot.GetUrl()\n    url = js.Template(url)\n    if (global_save) Bot.SetGlobalData(msg.forward.chat_id, msg.forward.content || msg.forward.text || url)\n} else if (msg.url) {\n    url = msg.url\n    url = js.Template(url)\n} else if (msg.telegram) {\n    url = Bot.GetUrl()\n    url = js.Template(url)\n    if (global_save) Bot.SetGlobalData(msg.telegram.chat_id, msg.telegram.content)\n} else {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"No valid method\" })\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//invio la richiesta\nif (url) {\n    node.status({ fill: \"blue\", shape: \"dot\", text: Bot.GetMethod(url) })\n    return { method: 'POST', url: url }\n} else {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: 'The message to be sent is invalid' })\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 40,
+        "wires": [
+            [
+                "8bbf46b2a2110103"
+            ]
+        ],
+        "inputLabels": [
+            "Input"
+        ],
+        "outputLabels": [
+            "Http request"
+        ]
+    },
+    {
+        "id": "3d83d2843a98131f",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Node status",
+        "func": "if (env.get(\"all_status_node\")) node.status({ fill: \"green\", shape: \"ring\", text: \"Ready\" })",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 335,
+        "y": 90,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "cd8af3e0fd255580",
+        "type": "trigger",
+        "z": "0832ecba3b97dcae",
+        "name": "Reset status node",
+        "op1": "",
+        "op2": "0",
+        "op1type": "nul",
+        "op2type": "str",
+        "duration": "5",
+        "extend": true,
+        "overrideDelay": false,
+        "units": "s",
+        "reset": "",
+        "bytopic": "all",
+        "topic": "topic",
+        "outputs": 1,
+        "x": 275,
+        "y": 90,
+        "wires": [
+            [
+                "3d83d2843a98131f"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "ee8b437b7edf8ab4",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Global stored",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n/**\n * Tools Class Collections Javascript for Node-RED\n */\nconst Tools = global.get('Tools.class')\nconst js = new Tools(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n/**\n * ////////////////////////////////////////////////////\n * Telegram Bot API sender\n * Subflow per Node-Red\n * node-telegram-bot-api-sender\n * ////////////////////////////////////////////////////\n * Author: Bruno Leonardi <b.leonardi78@gmail.com>\n * ////////////////////////////////////////////////////\n */\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nconst global_save = flow.get('global_save')\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n/**\n * Aggiorna i dati global del messaggio inviato\n */\nfunction SetGlobalChat() {\n    //imposto url\n    var url = msg.request\n    if (!url) return\n    url = url.replace(Bot.url_base, '')\n\n    //imposto id della chat\n    const chat_id = Bot.GetChatId(url)\n    if (!chat_id) return\n\n    //eliminazione messaggio\n    if (js.TextExists(url, `deleteMessage\\?`, 'i')) {\n        Bot.ResetGlobalChat(chat_id)\n        Bot.SetGlobalMessageId(chat_id, msg.response.message_id)\n        Bot.SetGlobalDate(chat_id)\n        Bot.SetGlobalPending(chat_id)\n        Bot.SetGlobalType(chat_id, 'delete')\n        Bot.SetGlobalKeycode(chat_id)\n        return\n    }\n\n    if (!global_save) return\n\n    //memorizzo le info\n    Bot.SetGlobalMessageId(chat_id, msg.response.message_id)\n    Bot.SetGlobalDate(chat_id)\n    Bot.SetGlobalPending(chat_id)\n    Bot.SetGlobalType(chat_id)\n\n    if (js.TextExists(url, `&reply_markup=`)) {\n        Bot.SetGlobalPending(chat_id, true)\n        var keyboard = js.JSO(url.substr(url.indexOf('&reply_markup=') + 14, url.lastIndexOf('}')))\n        if (js.TextExists(url, `\"keyboard\":`)) {\n            if (js.TextExists(url, `\"request_contact\":true`)) {\n                Bot.SetGlobalType(chat_id, 'request_contact')\n            } else if (js.TextExists(url, `\"request_location\":true`)) {\n                Bot.SetGlobalType(chat_id, 'request_location')\n            } else {\n                Bot.SetGlobalType(chat_id, 'keyboard')\n            }\n            Bot.SetGlobalData(chat_id, Bot.GetKeyboardButtons(keyboard.keyboard))\n        } else if (js.TextExists(url, `\"inline_keyboard\":`)) {\n            Bot.SetGlobalType(chat_id, 'inline_keyboard')\n            Bot.SetGlobalData(chat_id, Bot.GetKeyboardButtons(keyboard.inline_keyboard))\n        } else {\n            Bot.SetGlobalPending(chat_id)\n            Bot.SetGlobalKeycode(chat_id)\n        }\n    } else {\n        Bot.SetGlobalKeycode(chat_id)\n    }\n\n    return\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\ntry {\n    if (msg.ok == true && msg.status == 200 && msg.request && msg.response) {\n        SetGlobalChat()\n    }\n} catch (error) {\n    node.error(error, msg)\n}\n\nreturn msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1060,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9aa68a1366b9dca9",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Clone",
+        "func": "if (msg.telegram) {\n    var message = { telegram: RED.util.cloneMessage(msg.telegram) }\n    return [RED.util.cloneMessage(msg), message]\n} else {\n    return [RED.util.cloneMessage(msg), msg]\n}",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 140,
+        "y": 40,
+        "wires": [
+            [
+                "cd8af3e0fd255580",
+                "7aa41dabf61be844"
+            ],
+            [
+                "9bb0f07c707a0b3e"
+            ]
+        ],
+        "inputLabels": [
+            "msg"
+        ],
+        "outputLabels": [
+            "clone",
+            "original"
+        ],
+        "icon": "font-awesome/fa-clone"
+    },
+    {
+        "id": "a3a3c6467be67fba",
+        "type": "http request",
+        "z": "0832ecba3b97dcae",
+        "name": "Chat action",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "x": 395,
+        "y": 70,
+        "wires": [
+            [
+                "ac06f6579cf742a0"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "a564849d07f2e58a",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "sendChatAction",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nif (msg.url && typeof msg.url === 'string' && msg.url.includes('deleteMessage')) {\n    return [msg, null, null]\n} else if (msg.forward && msg.forward.method && msg.forward.method == 'deleteMessage') {\n    return [msg, null, null]\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nvar url = global.get('telegram.url_base')\nvar action = Bot.GetAction()\nvar chat_id = null\nmsg.original_message = RED.util.cloneMessage(msg)\n\nif (env.get(\"send_action\")) {\n    try {\n        if (msg.url) {\n            chat_id = Bot.GetChatId(msg.url)\n            if (!chat_id) return [msg.original_message, null]\n            action = Bot.GetAction(msg.url)\n            msg.method = 'POST'\n            msg.url = `${url}sendChatAction?chat_id=${chat_id}&action=${action}`\n            return [null, msg]\n        } else if (msg.forward) {\n            chat_id = msg.forward.chat_id\n            if (!chat_id) return [msg.original_message, null]\n            action = Bot.GetAction(msg.forward.method)\n            msg.method = 'POST'\n            msg.url = `${url}sendChatAction?chat_id=${chat_id}&action=${action}`\n            return [null, msg]\n        } else if (msg.telegram) {\n            chat_id = msg.telegram.chat_id\n            if (!chat_id) return [msg.original_message, null]\n            action = Bot.GetAction(msg.telegram.content_type)\n            msg.method = 'POST'\n            msg.url = `${url}sendChatAction?chat_id=${chat_id}&action=${action}`\n            return [null, msg]\n        }\n    } catch (error) {\n        node.error(error, msg)\n        return [msg.original_message, null]\n    }\n}\n\ndelete msg.original_message\nreturn [msg, null]",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 335,
+        "y": 40,
+        "wires": [
+            [
+                "c563b326653f07e8"
+            ],
+            [
+                "a3a3c6467be67fba"
+            ]
+        ],
+        "outputLabels": [
+            "Continue",
+            "Wait"
+        ],
+        "icon": "font-awesome/fa-send",
+        "l": false
+    },
+    {
+        "id": "ac06f6579cf742a0",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Original message",
+        "func": "return msg.original_message || msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 455,
+        "y": 70,
+        "wires": [
+            [
+                "c563b326653f07e8"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "7aa41dabf61be844",
+        "type": "delay",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "500",
+        "timeoutUnits": "milliseconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "250",
+        "randomLast": "500",
+        "randomUnits": "milliseconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 275,
+        "y": 40,
+        "wires": [
+            [
+                "a564849d07f2e58a"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "9bb0f07c707a0b3e",
+        "type": "delay",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "500",
+        "timeoutUnits": "milliseconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "250",
+        "randomLast": "500",
+        "randomUnits": "milliseconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 105,
+        "y": 90,
+        "wires": [
+            [
+                "27b489c275e71fd2"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "27b489c275e71fd2",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Delete message",
+        "func": "delete msg.payload\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 170,
+        "y": 150,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "91c1e6b6652b7f35",
+        "type": "subflow",
+        "name": "Simple message",
+        "info": "# Descrizione\r\n> Messaggi, risposte e tanto altro con semplicità\r\n\r\n## Type (Selection)\r\n> Selezione del metodo\r\n\r\n## Ignore expired messages (Boolean)\r\n> Scarta i messaggi contrassegnati come scaduti, la scadenza è assegnata in base alla data del messaggio\r\n\r\n## Send the request alternately (Boolean)\r\n> Alterna l'invio della richiesta per non essere ripetitiva\r\n\r\n## Answers (JSON o String) con {{template}}\r\n> Selezione tipo di oggetto JSON o String per impostare il testo con selezione random\r\n - JSON: Object o Array\r\n - String: percorso della variabile Global contenente Object o Array\r\n - String: parole separate da punto e virgola (;)\r\n - String: singola parola o frase\r\n\r\n## Button OK (String)\r\n> Testo del pulsante di OK per le richieste\r\n\r\n## Button CANCEL (String)\r\n> Testo del pulsante di CANCEL per le richieste\r\n\r\n## Keycode (String)\r\n> Codice identificativo tastiera\r\n\r\n## One time keyboard (Check)\r\n> Nasconde la tastiera dopo l'utilizzo\r\n\r\n## Resize keyboard (Check)\r\n> Ridimensiona i pulsanti della tastiera\r\n\r\n## Selective (Check)\r\n> Solo per l'utente o chat privata\r\n\r\n## Impostazioni da messaggio\r\n> Il messaggio può contenere una o più opzioni e deve essere così strutturato:\r\n - msg.forward.content = String (testo del messaggio con {{template}})\r\n - msg.forward.reply_markup = JSON o String (https://core.telegram.org/bots/api#replykeyboardmarkup)",
+        "category": "Telegram Bot API",
+        "in": [
+            {
+                "x": 50,
+                "y": 90,
+                "wires": [
+                    {
+                        "id": "b38223583ce1b9f4"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 930,
+                "y": 90,
+                "wires": [
+                    {
+                        "id": "b86f8168cfcc9f48",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 480,
+                "y": 140,
+                "wires": [
+                    {
+                        "id": "fb14d5c9c7ac0e69",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "selection",
+                "type": "str",
+                "value": "message",
+                "ui": {
+                    "icon": "font-awesome/fa-question-circle-o",
+                    "label": {
+                        "en-US": "Type:"
+                    },
+                    "type": "select",
+                    "opts": {
+                        "opts": [
+                            {
+                                "l": {
+                                    "en-US": "Message"
+                                },
+                                "v": "message"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "Message + remove keyboard"
+                                },
+                                "v": "message_remove_keyboard"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "Reply to message"
+                                },
+                                "v": "message_reply"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "Reply to message + remove keyboard"
+                                },
+                                "v": "message_reply_remove_keyboard"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "Chat action"
+                                },
+                                "v": "action"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "Request location"
+                                },
+                                "v": "request_location"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "Request contact"
+                                },
+                                "v": "request_contact"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "ignore_expired_messages",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-clock-o",
+                    "label": {
+                        "en-US": "Ignore expired messages"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "request_alternately",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-graduation-cap",
+                    "label": {
+                        "en-US": "Send the request alternately"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "answers",
+                "type": "json",
+                "value": "[]",
+                "ui": {
+                    "icon": "font-awesome/fa-comments-o",
+                    "label": {
+                        "en-US": "Answers:"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "str",
+                            "json"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "button_ok",
+                "type": "str",
+                "value": "Condividi",
+                "ui": {
+                    "icon": "font-awesome/fa-check-circle",
+                    "label": {
+                        "en-US": "Button OK:"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "str"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "button_cancel",
+                "type": "str",
+                "value": "Non condivido",
+                "ui": {
+                    "icon": "font-awesome/fa-times-circle",
+                    "label": {
+                        "en-US": "Button CANCEL:"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "str"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "placeholder",
+                "type": "str",
+                "value": "{{greeting}} {{first_name}}",
+                "ui": {
+                    "icon": "font-awesome/fa-tag",
+                    "label": {
+                        "en-US": "Placeholder:"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "str"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "keycode",
+                "type": "str",
+                "value": "",
+                "ui": {
+                    "icon": "font-awesome/fa-key",
+                    "label": {
+                        "en-US": "Key code:"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "str"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "one_time_keyboard",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-check-circle",
+                    "label": {
+                        "en-US": "One time keyboard"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "resize_keyboard",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-compress",
+                    "label": {
+                        "en-US": "Resize keyboard"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "selective",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-check-circle",
+                    "label": {
+                        "en-US": "Selective"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "is_persistent",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-keyboard-o",
+                    "label": {
+                        "en-US": "Persistent"
+                    },
+                    "type": "checkbox"
+                }
+            }
+        ],
+        "meta": {
+            "module": "node-red-telegram-bot-api-simple-message",
+            "version": "2.0.0",
+            "author": "b.leonardi78@gmail.com",
+            "desc": "Semplifica l'invio dei messaggi a Telegram",
+            "keywords": "telegram, sender, request, keyboard, chat action, message",
+            "license": "MIT"
+        },
+        "color": "#3FADB5",
+        "inputLabels": [
+            "Input"
+        ],
+        "outputLabels": [
+            "Response",
+            "Passthru"
+        ],
+        "icon": "font-awesome/fa-comments",
+        "status": {
+            "x": 890,
+            "y": 140,
+            "wires": [
+                {
+                    "id": "c2705527babb9abb",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "39ed2b1fa3faf387",
+        "type": "status",
+        "z": "91c1e6b6652b7f35",
+        "name": "",
+        "scope": [
+            "fcb8a36e36de7526",
+            "b7db2d383ef8fa19",
+            "b86f8168cfcc9f48"
+        ],
+        "x": 690,
+        "y": 140,
+        "wires": [
+            [
+                "c2705527babb9abb"
+            ]
+        ]
+    },
+    {
+        "id": "53026bb6e735df74",
+        "type": "trigger",
+        "z": "91c1e6b6652b7f35",
+        "name": "Reset status",
+        "op1": "",
+        "op2": "reset_status_node",
+        "op1type": "nul",
+        "op2type": "str",
+        "duration": "5",
+        "extend": true,
+        "overrideDelay": false,
+        "units": "s",
+        "reset": "",
+        "bytopic": "all",
+        "topic": "topic",
+        "outputs": 1,
+        "x": 310,
+        "y": 40,
+        "wires": [
+            [
+                "b7db2d383ef8fa19"
+            ]
+        ]
+    },
+    {
+        "id": "c2705527babb9abb",
+        "type": "delay",
+        "z": "91c1e6b6652b7f35",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 815,
+        "y": 140,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "b7db2d383ef8fa19",
+        "type": "function",
+        "z": "91c1e6b6652b7f35",
+        "name": "Simple message",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n/**\n * Tools Class Collections Javascript for Node-RED\n */\nconst Tools = global.get('Tools.class')\nconst js = new Tools(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//tipo di messaggio selezionato\nconst SELECTION = {\n    message: \"message\",\n    message_remove_keyboard: 'message_remove_keyboard',\n    message_reply: \"message_reply\",\n    message_reply_remove_keyboard: 'message_reply_remove_keyboard',\n    action: \"action\",\n    request_contact: \"request_contact\",\n    request_location: \"request_location\"\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//tipo messaggio selezionato\nvar selection = env.get(\"selection\")\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//update status node\nif (msg.payload == \"reset_status_node\") {\n    //tipo messaggio selezionato\n    let opt = env.get(\"answers\")\n    if (typeof opt === 'string' && opt != '') {\n        opt = ' + Global Answers'\n    } else if (typeof opt === 'object' && opt != '') {\n        opt = ' + Array Answers'\n    } else {\n        opt = ''\n    }\n\n    if (selection == SELECTION.request_location) {\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Request location\" + opt })\n    } else if (selection == SELECTION.request_contact) {\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Request contact\" + opt })\n    } else if (selection == SELECTION.message_remove_keyboard) {\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Message and remove keyboard\" + opt })\n    } else if (selection == SELECTION.action) {\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Chat action\" + opt })\n    } else if (selection == SELECTION.message_reply) {\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Reply to message\" + opt })\n    } else if (selection == SELECTION.message_reply_remove_keyboard) {\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Reply and remove keyboard \" + opt })\n    } else {\n        //tutti gli altri tipi di messaggio\n        node.status({ fill: \"grey\", shape: \"ring\", text: \"Message\" + opt })\n    }\n\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//funziona solo con messaggi telegram\nif (msg.telegram === undefined) {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"Telegram message not found\" })\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//ignora i messaggi scaduti\nif (env.get(\"ignore_expired_messages\") && msg.telegram.message_expired) {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"The message has expired\" })\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//se vi sono parole offensive non rispondere, ha già ricevuto il messaggio\nif (msg.telegram.offensive_words) {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"The message contains offensive words\" })\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//testo del messaggio\nvar TEXT = env.get(\"answers\")\n//alterna le richieste\nconst request_alternately = env.get('request_alternately')\n//opzione messaggio\nvar reply_markup = null\n//se il messaggio è una replica\nvar isEcho = false\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nif (msg.forward) {\n    TEXT = msg.forward.text || TEXT\n    if (msg.forward.options) reply_markup = msg.forward.options.reply_markup || null\n} else if (js.IsStringFull(TEXT)) {\n    TEXT = TEXT.trim()\n    let global_object = js.GetGlobalVariable(TEXT)\n    TEXT = (global_object) ? js.GetRandomValue(global_object) : js.GetRandomValue(TEXT)\n} else {\n    TEXT = js.GetRandomValue(TEXT)\n}\n\nif (js.IsStringEmpty(TEXT)) TEXT = null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nTEXT = js.Template(TEXT)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//imposto il contenuto dal messaggio originale\nif (js.IsStringEmpty(TEXT)) {\n    //imposto il testo del messaggio\n    TEXT = msg.telegram.content\n    TEXT = js.Template(TEXT)\n    isEcho = true\n\n    //controlla il testo del messaggio\n    if (js.IsStringEmpty(TEXT)) {\n        node.status({ fill: \"yellow\", shape: \"dot\", text: \"No content to send\" })\n        return null\n    } else if (js.IsStringFull(TEXT) && TEXT.startsWith(\"/\")) {\n        node.status({ fill: \"yellow\", shape: \"dot\", text: `Command ${TEXT} not send` })\n        return null\n    }\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nnode.status({ fill: \"green\", shape: \"dot\", text: `Compose message...` })\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//seleziona il tipo di messaggio tra quelli gestiti\nswitch (selection) {\n    case SELECTION.action:\n        //creo il messaggio\n        msg.global_save = false\n        msg.forward = {}\n        msg.forward.method = 'sendChatAction'\n        msg.forward.chat_id = msg.telegram.chat_id\n        node.status({ fill: \"blue\", shape: \"dot\", text: `Send action to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n        return msg\n    case SELECTION.message:\n        if (isEcho) {\n            delete msg.forward\n            node.status({ fill: \"blue\", shape: \"ring\", text: `Send echo message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        } else {\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = TEXT\n            node.status({ fill: \"green\", shape: \"dot\", text: `Send message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        }\n    case SELECTION.message_remove_keyboard:\n        if (isEcho) {\n            reply_markup = reply_markup || {\n                remove_keyboard: true,\n                selective: env.get(\"selective\")\n            }\n\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = msg.telegram.content\n            msg.forward.options = {}\n            msg.forward.options.reply_markup = (typeof reply_markup === 'string') ? reply_markup : JSON.stringify(reply_markup)\n            node.status({ fill: \"blue\", shape: \"ring\", text: `Send echo message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        } else {\n            reply_markup = reply_markup || {\n                remove_keyboard: true,\n                selective: env.get(\"selective\")\n            }\n\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = TEXT\n            msg.forward.options = {}\n            msg.forward.options.reply_markup = (typeof reply_markup === 'string') ? reply_markup : JSON.stringify(reply_markup)\n            node.status({ fill: \"green\", shape: \"dot\", text: `Send message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        }\n    case SELECTION.message_reply:\n        if (isEcho) {\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = msg.telegram.content\n            msg.forward.options = {}\n            msg.forward.options.reply_to_message_id = msg.telegram.message_id\n            node.status({ fill: \"blue\", shape: \"ring\", text: `Send echo message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        } else {\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = TEXT\n            msg.forward.options = {}\n            msg.forward.options.reply_to_message_id = msg.telegram.message_id\n            node.status({ fill: \"green\", shape: \"dot\", text: `Send reply message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        }\n    case SELECTION.message_reply_remove_keyboard:\n        if (isEcho) {\n            reply_markup = reply_markup || {\n                remove_keyboard: true,\n                selective: env.get(\"selective\")\n            }\n\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = msg.telegram.content\n            msg.forward.options = {}\n            msg.forward.options.reply_to_message_id = msg.telegram.message_id\n            msg.forward.options.reply_markup = (typeof reply_markup === 'string') ? reply_markup : JSON.stringify(reply_markup)\n            node.status({ fill: \"blue\", shape: \"ring\", text: `Send echo message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        } else {\n            reply_markup = reply_markup || {\n                remove_keyboard: true,\n                selective: env.get(\"selective\")\n            }\n\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = TEXT\n            msg.forward.options = {}\n            msg.forward.options.reply_to_message_id = msg.telegram.message_id\n            msg.forward.options.reply_markup = (typeof reply_markup === 'string') ? reply_markup : JSON.stringify(reply_markup)\n            node.status({ fill: \"green\", shape: \"dot\", text: `Send reply message to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        }\n    case SELECTION.request_contact:\n        if (Bot.GetGlobalPending(msg.telegram.chat_id) && request_alternately) {\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'deleteMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.message_id = Bot.GetGlobalMessageId(msg.telegram.chat_id)\n            node.status({ fill: \"yellow\", shape: \"dot\", text: `Delete keyboad to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        } else {\n            let PLACEHOLDER = env.get(\"placeholder\")\n            PLACEHOLDER = PLACEHOLDER || 'Condividi il contatto...'\n            PLACEHOLDER = js.Template(PLACEHOLDER)\n\n            reply_markup = reply_markup || {\n                is_persistent: env.get(\"is_persistent\"),\n                resize_keyboard: env.get(\"resize_keyboard\"),\n                one_time_keyboard: env.get(\"one_time_keyboard\"),\n                input_field_placeholder: PLACEHOLDER,\n                selective: env.get(\"selective\"),\n                keyboard: [\n                    [{\n                        text: env.get(\"button_ok\"),\n                        request_contact: true\n                    }],\n                    [\n                        env.get(\"button_cancel\")\n                    ]\n                ]\n            }\n\n            //memorizzo il keycode\n            Bot.SetGlobalKeycode(msg.telegram.chat_id, env.get(\"keycode\").trim())\n\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = TEXT\n            msg.forward.options = {}\n            msg.forward.options.reply_markup = (typeof reply_markup === 'string') ? reply_markup : JSON.stringify(reply_markup)\n            node.status({ fill: \"green\", shape: \"dot\", text: `Send request contact to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        }\n    case SELECTION.request_location:\n        if (Bot.GetGlobalPending(msg.telegram.chat_id) && request_alternately) {\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'deleteMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.message_id = Bot.GetGlobalMessageId(msg.telegram.chat_id)\n            node.status({ fill: \"yellow\", shape: \"dot\", text: `Delete keyboad to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        } else {\n            let PLACEHOLDER = env.get(\"placeholder\")\n            PLACEHOLDER = PLACEHOLDER || 'Condividi la posizione...'\n            PLACEHOLDER = js.Template(PLACEHOLDER)\n\n            reply_markup = reply_markup || {\n                is_persistent: env.get(\"is_persistent\"),\n                resize_keyboard: env.get(\"resize_keyboard\"),\n                one_time_keyboard: env.get(\"one_time_keyboard\"),\n                input_field_placeholder: PLACEHOLDER,\n                selective: env.get(\"selective\"),\n                keyboard: [\n                    [{\n                        text: env.get(\"button_ok\"),\n                        request_location: true\n                    }],\n                    [\n                        env.get(\"button_cancel\")\n                    ]\n                ]\n            }\n\n            //memorizzo il keycode\n            Bot.SetGlobalKeycode(msg.telegram.chat_id, env.get(\"keycode\").trim())\n\n            //creo il messaggio\n            msg.forward = {}\n            msg.forward.method = 'sendMessage'\n            msg.forward.chat_id = msg.telegram.chat_id\n            msg.forward.text = TEXT\n            msg.forward.options = {}\n            msg.forward.options.reply_markup = (typeof reply_markup === 'string') ? reply_markup : JSON.stringify(reply_markup)\n            node.status({ fill: \"green\", shape: \"dot\", text: `Send request contact to ${msg.telegram.user.first_name} ${msg.telegram.user.last_name}` })\n            return msg\n        }\n    default:\n        node.status({ fill: \"grey\", shape: \"dot\", text: `Message type \"${msg.telegram.message_type}\" not send` })\n        return null\n}",
+        "outputs": "1",
+        "noerr": 0,
+        "initialize": "\n//tipo di messaggio selezionato\nconst SELECTION = {\n    message: \"message\",\n    message_remove_keyboard: 'message_remove_keyboard',\n    message_reply: \"message_reply\",\n    message_reply_remove_keyboard: 'message_reply_remove_keyboard',\n    action: \"action\",\n    request_contact: \"request_contact\",\n    request_location: \"request_location\"\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//tipo messaggio selezionato\nvar selection = env.get(\"selection\")\nlet opt = env.get(\"answers\")\n\nif (typeof opt === 'string' && opt != '') {\n    try {\n        let global_answers = global.get(opt)\n\n        if (global_answers && typeof global_answers === 'object') {\n            opt = ' + Global Answers'\n        } else {\n            opt = ' + Text'\n        }\n    } catch (error) {\n        node.status({ fill: \"red\", shape: \"dot\", text: \"The global variable not exists\" })\n        opt = ' + Text'\n    }\n} else if (typeof opt === 'object' && opt != '') {\n    opt = ' + Array Answers'\n} else {\n    opt = ''\n}\n\nif (selection == SELECTION.request_location) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Request location\" + opt })\n} else if (selection == SELECTION.request_contact) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Request contact\" + opt })\n} else if (selection == SELECTION.message_remove_keyboard) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Message and remove keyboard\" + opt })\n} else if (selection == SELECTION.action) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Chat action\" + opt })\n} else if (selection == SELECTION.message_reply_remove_keyboard) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Reply and remove keyboard \" + opt })\n} else if (selection == SELECTION.message_reply) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Reply to message\" + opt })\n} else {\n    //tutti gli altri tipi di messaggio\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Message\" + opt })\n}",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 90,
+        "wires": [
+            [
+                "b86f8168cfcc9f48"
+            ]
+        ]
+    },
+    {
+        "id": "8215919fdfb25cd2",
+        "type": "catch",
+        "z": "91c1e6b6652b7f35",
+        "name": "",
+        "scope": [
+            "b7db2d383ef8fa19",
+            "b86f8168cfcc9f48"
+        ],
+        "uncaught": false,
+        "x": 435,
+        "y": 40,
+        "wires": [
+            [
+                "5dfba38889760178"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "5dfba38889760178",
+        "type": "function",
+        "z": "91c1e6b6652b7f35",
+        "name": "error.message",
+        "func": "node.error(msg, msg)",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 585,
+        "y": 40,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "b38223583ce1b9f4",
+        "type": "function",
+        "z": "91c1e6b6652b7f35",
+        "name": "Clone",
+        "func": "if (msg.telegram) {\n    var message = { telegram: RED.util.cloneMessage(msg.telegram)}\n    return [RED.util.cloneMessage(msg), message]\n} else {\n    return [RED.util.cloneMessage(msg), msg]\n}",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 150,
+        "y": 90,
+        "wires": [
+            [
+                "53026bb6e735df74",
+                "b7db2d383ef8fa19"
+            ],
+            [
+                "b449e97ec7279c73"
+            ]
+        ],
+        "inputLabels": [
+            "msg"
+        ],
+        "outputLabels": [
+            "clone",
+            "original"
+        ],
+        "icon": "font-awesome/fa-clone"
+    },
+    {
+        "id": "b86f8168cfcc9f48",
+        "type": "subflow:0832ecba3b97dcae",
+        "z": "91c1e6b6652b7f35",
+        "name": "",
+        "env": [
+            {
+                "name": "all_status_node",
+                "type": "bool",
+                "value": "false"
+            }
+        ],
+        "x": 730,
+        "y": 90,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "b449e97ec7279c73",
+        "type": "delay",
+        "z": "91c1e6b6652b7f35",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "500",
+        "timeoutUnits": "milliseconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "250",
+        "randomLast": "500",
+        "randomUnits": "milliseconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 115,
+        "y": 140,
+        "wires": [
+            [
+                "fb14d5c9c7ac0e69"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "fb14d5c9c7ac0e69",
+        "type": "function",
+        "z": "91c1e6b6652b7f35",
+        "name": "Delete message",
+        "func": "delete msg.payload\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "95bfbd06cf261260",
+        "type": "subflow:91c1e6b6652b7f35",
+        "z": "2d04e7883a87cf53",
+        "name": "",
+        "x": 250,
+        "y": 270,
+        "wires": [
+            [],
+            []
+        ]
+    }
+]

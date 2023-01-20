@@ -1,0 +1,826 @@
+[
+    {
+        "id": "0832ecba3b97dcae",
+        "type": "subflow",
+        "name": "Telegram API sender",
+        "info": "## Descrizione\r\n> Invia messaggi a Telegram\r\n\r\n# Impostazioni da messaggio\r\n> Il messaggio può contenere una o più opzioni in base al metodo e deve essere così strutturato:\r\n - msg.forward = {}\r\n - msg.forward.chat_id = String || Number (Id chat)\r\n - msg.forward.content = Object (Contenuto del messaggio, testo, foto, sticker...)\r\n - msg.forward.method = String (https://core.telegram.org/bots/api#available-methods)\r\n - msg.forward.options = Object (Deve contienere tutte le opzioni in base al metodo)\r\n> Oppure:\r\n - msg.url = String (Url completa)\r\n\r\n### Links\r\n - https://core.telegram.org/bots/api#message\r\n - https://core.telegram.org/bots/api#available-methods\r\n - https://core.telegram.org/bots/api#inlinekeyboardmarkup",
+        "category": "Telegram Bot API",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "9aa68a1366b9dca9"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 1220,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "ee8b437b7edf8ab4",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 150,
+                "y": 150,
+                "wires": [
+                    {
+                        "id": "59f582550ab0a339",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "all_status_node",
+                "type": "bool",
+                "value": "false",
+                "ui": {
+                    "icon": "font-awesome/fa-info-circle",
+                    "label": {
+                        "en-US": "All status node"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "send_action",
+                "type": "bool",
+                "value": "false",
+                "ui": {
+                    "icon": "font-awesome/fa-send",
+                    "label": {
+                        "en-US": "Chat Action"
+                    },
+                    "type": "checkbox"
+                }
+            }
+        ],
+        "meta": {
+            "module": "node-red-telegram-bot-api-sender",
+            "version": "1.0.0",
+            "author": "Bruno Leonardi <b.leonardi78@gmail.com>",
+            "desc": "Invia i messaggi a Telegram",
+            "keywords": "telegram, bot, api, messaging, messages, message, sender",
+            "license": "MIT"
+        },
+        "color": "#3FADB5",
+        "inputLabels": [
+            "Request"
+        ],
+        "outputLabels": [
+            "Response",
+            "Passthru"
+        ],
+        "icon": "font-awesome/fa-cloud-upload",
+        "status": {
+            "x": 1180,
+            "y": 90,
+            "wires": [
+                {
+                    "id": "518c85e6cf2edf53",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "8bbf46b2a2110103",
+        "type": "http request",
+        "z": "0832ecba3b97dcae",
+        "name": "Telegram server",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "x": 730,
+        "y": 40,
+        "wires": [
+            [
+                "8c789a3af36443be"
+            ]
+        ]
+    },
+    {
+        "id": "5933d3c971e2bfc2",
+        "type": "status",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "scope": [
+            "8c789a3af36443be",
+            "c563b326653f07e8",
+            "3d83d2843a98131f"
+        ],
+        "x": 1005,
+        "y": 90,
+        "wires": [
+            [
+                "518c85e6cf2edf53"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "a788b2b707b5b14c",
+        "type": "catch",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "scope": [
+            "8bbf46b2a2110103",
+            "8c789a3af36443be",
+            "c563b326653f07e8",
+            "ee8b437b7edf8ab4",
+            "a3a3c6467be67fba"
+        ],
+        "uncaught": false,
+        "x": 855,
+        "y": 90,
+        "wires": [
+            [
+                "18569120cbc6181e"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "8c789a3af36443be",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Response",
+        "func": "/**\n * ////////////////////////////////////////////////////\n * Telegram Bot API sender\n * Subflow per Node-Red\n * node-telegram-bot-api-sender\n * ////////////////////////////////////////////////////\n * Author: Bruno Leonardi <b.leonardi78@gmail.com>\n * ////////////////////////////////////////////////////\n */\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//codice stato risposta\nvar status = msg.statusCode || 0\n\n//messaggio di errore\nvar error_message = null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//verifico se esiste il payload\nif (msg.payload) {\n    try {\n        //lo converto in oggetto\n        msg.payload = (typeof msg.payload === 'string') ? JSON.parse(msg.payload) : msg.payload\n    } catch (error) {\n        status = 0\n        msg.payload = {\n            ok: false,\n            error_code: 0,\n            description: \"Error JSONParse convertion\"\n        }\n    }\n\n    //controllo se è una risposta di telegram\n    //payload: \"{\"ok\":true,\"result\":[]}\"\n    if (msg.payload.ok === undefined) {\n        status = 0\n        msg.payload = {\n            ok: false,\n            error_code: 0,\n            description: \"It is not a Telegram message\"\n        }\n    }\n} else {\n    status = 0\n    msg.payload = {\n        ok: false,\n        error_code: 0,\n        description: \"Payload message not exists\"\n    }\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//invio esito\nif (status == 200) {\n    node.status({ fill: \"blue\", shape: \"dot\", text: \"Response Ok\" })\n    node.status({ fill: \"green\", shape: \"ring\", text: \"Ready\" })\n    return { ok: true, status: status, request: msg.url, response: msg.payload.result }\n} else {\n    //https://core.telegram.org/api/errors\n    if (msg.payload) {\n        error_message = msg.payload.description || \"Unknown error\"\n    } else {\n        error_message = \"Unknown error\"\n    }\n    \n    error_message = `${status} | ${error_message}`\n    error_message = new Error(error_message)\n    node.status({ fill: \"red\", shape: \"dot\", text: error_message.message })\n    node.error(error_message, msg)\n    return { ok: false, status: status, request: msg.url, response: error_message }\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\nif (env.get(\"all_status_node\")) {\n    node.status({ fill: \"blue\", shape: \"ring\", text: \"Initialized\" })\n    node.status({ fill: \"blue\", shape: \"dot\", text: \"Initialized\" })\n    node.status({ fill: \"green\", shape: \"ring\", text: \"Ready\" })\n} ",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 40,
+        "wires": [
+            [
+                "ee8b437b7edf8ab4"
+            ]
+        ],
+        "inputLabels": [
+            "Http response"
+        ],
+        "outputLabels": [
+            "Response"
+        ]
+    },
+    {
+        "id": "518c85e6cf2edf53",
+        "type": "delay",
+        "z": "0832ecba3b97dcae",
+        "name": "Rate limit",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "minutes",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1115,
+        "y": 90,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "18569120cbc6181e",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "error.message",
+        "func": "node.error(msg, msg)",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 945,
+        "y": 90,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "c563b326653f07e8",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Request",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n/**\n * Tools Class Collections Javascript for Node-RED\n */\nconst Tools = global.get('Tools.class')\nconst js = new Tools(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n/**\n * ////////////////////////////////////////////////////\n * Telegram Bot API sender\n * Subflow per Node-Red\n * node-telegram-bot-api-sender\n * ////////////////////////////////////////////////////\n * Author: Bruno Leonardi <b.leonardi78@gmail.com>\n * ////////////////////////////////////////////////////\n */\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nvar url = null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nconst global_save = (msg.global_save === undefined) ? true : msg.global_save\nflow.set('global_save', global_save)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nif (msg.forward) {\n    url = Bot.GetUrl()\n    url = js.Template(url)\n    if (global_save) Bot.SetGlobalData(msg.forward.chat_id, msg.forward.content || msg.forward.text || url)\n} else if (msg.url) {\n    url = msg.url\n    url = js.Template(url)\n} else if (msg.telegram) {\n    url = Bot.GetUrl()\n    url = js.Template(url)\n    if (global_save) Bot.SetGlobalData(msg.telegram.chat_id, msg.telegram.content)\n} else {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"No valid method\" })\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//invio la richiesta\nif (url) {\n    node.status({ fill: \"blue\", shape: \"dot\", text: Bot.GetMethod(url) })\n    return { method: 'POST', url: url }\n} else {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: 'The message to be sent is invalid' })\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 40,
+        "wires": [
+            [
+                "8bbf46b2a2110103"
+            ]
+        ],
+        "inputLabels": [
+            "Input"
+        ],
+        "outputLabels": [
+            "Http request"
+        ]
+    },
+    {
+        "id": "3d83d2843a98131f",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Node status",
+        "func": "if (env.get(\"all_status_node\")) node.status({ fill: \"green\", shape: \"ring\", text: \"Ready\" })",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "cd8af3e0fd255580",
+        "type": "trigger",
+        "z": "0832ecba3b97dcae",
+        "name": "Reset status node",
+        "op1": "",
+        "op2": "0",
+        "op1type": "nul",
+        "op2type": "str",
+        "duration": "5",
+        "extend": true,
+        "overrideDelay": false,
+        "units": "s",
+        "reset": "",
+        "bytopic": "all",
+        "topic": "topic",
+        "outputs": 1,
+        "x": 275,
+        "y": 90,
+        "wires": [
+            [
+                "3d83d2843a98131f"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "ee8b437b7edf8ab4",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Global stored",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n/**\n * Tools Class Collections Javascript for Node-RED\n */\nconst Tools = global.get('Tools.class')\nconst js = new Tools(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n/**\n * ////////////////////////////////////////////////////\n * Telegram Bot API sender\n * Subflow per Node-Red\n * node-telegram-bot-api-sender\n * ////////////////////////////////////////////////////\n * Author: Bruno Leonardi <b.leonardi78@gmail.com>\n * ////////////////////////////////////////////////////\n */\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nconst global_save = flow.get('global_save')\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n/**\n * Aggiorna i dati global del messaggio inviato\n */\nfunction SetGlobalChat() {\n    //imposto url\n    var url = msg.request\n    if (!url) return\n    url = url.replace(Bot.url_base, '')\n\n    //imposto id della chat\n    const chat_id = Bot.GetChatId(url)\n    if (!chat_id) return\n\n    //eliminazione messaggio\n    if (js.TextExists(url, `deleteMessage\\?`, 'i')) {\n        Bot.ResetGlobalChat(chat_id)\n        Bot.SetGlobalMessageId(chat_id, msg.response.message_id)\n        Bot.SetGlobalDate(chat_id)\n        Bot.SetGlobalPending(chat_id)\n        Bot.SetGlobalType(chat_id, 'delete')\n        Bot.SetGlobalKeycode(chat_id)\n        return\n    }\n\n    if (!global_save) return\n\n    //memorizzo le info\n    Bot.SetGlobalMessageId(chat_id, msg.response.message_id)\n    Bot.SetGlobalDate(chat_id)\n    Bot.SetGlobalPending(chat_id)\n    Bot.SetGlobalType(chat_id)\n\n    if (js.TextExists(url, `&reply_markup=`)) {\n        Bot.SetGlobalPending(chat_id, true)\n        var keyboard = js.JSO(url.substr(url.indexOf('&reply_markup=') + 14, url.lastIndexOf('}')))\n        if (js.TextExists(url, `\"keyboard\":`)) {\n            if (js.TextExists(url, `\"request_contact\":true`)) {\n                Bot.SetGlobalType(chat_id, 'request_contact')\n            } else if (js.TextExists(url, `\"request_location\":true`)) {\n                Bot.SetGlobalType(chat_id, 'request_location')\n            } else {\n                Bot.SetGlobalType(chat_id, 'keyboard')\n            }\n            Bot.SetGlobalData(chat_id, Bot.GetKeyboardButtons(keyboard.keyboard))\n        } else if (js.TextExists(url, `\"inline_keyboard\":`)) {\n            Bot.SetGlobalType(chat_id, 'inline_keyboard')\n            Bot.SetGlobalData(chat_id, Bot.GetKeyboardButtons(keyboard.inline_keyboard))\n        } else {\n            Bot.SetGlobalPending(chat_id)\n            Bot.SetGlobalKeycode(chat_id)\n        }\n    } else {\n        Bot.SetGlobalKeycode(chat_id)\n    }\n\n    return\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\ntry {\n    if (msg.ok == true && msg.status == 200 && msg.request && msg.response) {\n        SetGlobalChat()\n    }\n} catch (error) {\n    node.error(error, msg)\n}\n\nreturn msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1060,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9aa68a1366b9dca9",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Clone",
+        "func": "if (msg.telegram) {\n    var message = { telegram: RED.util.cloneMessage(msg.telegram) }\n    return [RED.util.cloneMessage(msg), message]\n} else {\n    return [RED.util.cloneMessage(msg), msg]\n}",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 140,
+        "y": 40,
+        "wires": [
+            [
+                "cd8af3e0fd255580",
+                "7aa41dabf61be844"
+            ],
+            [
+                "9bb0f07c707a0b3e"
+            ]
+        ],
+        "inputLabels": [
+            "msg"
+        ],
+        "outputLabels": [
+            "clone",
+            "original"
+        ],
+        "icon": "font-awesome/fa-clone"
+    },
+    {
+        "id": "59f582550ab0a339",
+        "type": "change",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "rules": [
+            {
+                "t": "delete",
+                "p": "payload",
+                "pt": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 175,
+        "y": 90,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "a3a3c6467be67fba",
+        "type": "http request",
+        "z": "0832ecba3b97dcae",
+        "name": "Chat action",
+        "method": "use",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "x": 395,
+        "y": 70,
+        "wires": [
+            [
+                "ac06f6579cf742a0"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "a564849d07f2e58a",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "sendChatAction",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nif (msg.url && typeof msg.url === 'string' && msg.url.includes('deleteMessage')) {\n    return [msg, null, null]\n} else if (msg.forward && msg.forward.method && msg.forward.method == 'deleteMessage') {\n    return [msg, null, null]\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nvar url = global.get('telegram.url_base')\nvar action = Bot.GetAction()\nvar chat_id = null\nmsg.original_message = RED.util.cloneMessage(msg)\n\nif (env.get(\"send_action\")) {\n    try {\n        if (msg.url) {\n            chat_id = Bot.GetChatId(msg.url)\n            if (!chat_id) return [msg.original_message, null]\n            action = Bot.GetAction(msg.url)\n            msg.method = 'POST'\n            msg.url = `${url}sendChatAction?chat_id=${chat_id}&action=${action}`\n            return [null, msg]\n        } else if (msg.forward) {\n            chat_id = msg.forward.chat_id\n            if (!chat_id) return [msg.original_message, null]\n            action = Bot.GetAction(msg.forward.method)\n            msg.method = 'POST'\n            msg.url = `${url}sendChatAction?chat_id=${chat_id}&action=${action}`\n            return [null, msg]\n        } else if (msg.telegram) {\n            chat_id = msg.telegram.chat_id\n            if (!chat_id) return [msg.original_message, null]\n            action = Bot.GetAction(msg.telegram.content_type)\n            msg.method = 'POST'\n            msg.url = `${url}sendChatAction?chat_id=${chat_id}&action=${action}`\n            return [null, msg]\n        }\n    } catch (error) {\n        node.error(error, msg)\n        return [msg.original_message, null]\n    }\n}\n\ndelete msg.original_message\nreturn [msg, null]",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 335,
+        "y": 40,
+        "wires": [
+            [
+                "c563b326653f07e8"
+            ],
+            [
+                "a3a3c6467be67fba"
+            ]
+        ],
+        "outputLabels": [
+            "Continue",
+            "Wait"
+        ],
+        "icon": "font-awesome/fa-send",
+        "l": false
+    },
+    {
+        "id": "ac06f6579cf742a0",
+        "type": "function",
+        "z": "0832ecba3b97dcae",
+        "name": "Original message",
+        "func": "return msg.original_message || msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 455,
+        "y": 70,
+        "wires": [
+            [
+                "c563b326653f07e8"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "7aa41dabf61be844",
+        "type": "delay",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "500",
+        "timeoutUnits": "milliseconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "250",
+        "randomLast": "500",
+        "randomUnits": "milliseconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 275,
+        "y": 40,
+        "wires": [
+            [
+                "a564849d07f2e58a"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "9bb0f07c707a0b3e",
+        "type": "delay",
+        "z": "0832ecba3b97dcae",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "500",
+        "timeoutUnits": "milliseconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "250",
+        "randomLast": "500",
+        "randomUnits": "milliseconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 105,
+        "y": 90,
+        "wires": [
+            [
+                "59f582550ab0a339"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "504c9e2a717ef814",
+        "type": "subflow",
+        "name": "Answer callback",
+        "info": "# Descrizione\r\n> Risposta popup alla callback query\r\n\r\n## Text (JSON o String) con {{template}}\r\n> Selezione tipo di oggetto JSON o String per impostare il testo con selezione random\r\n - JSON: Object o Array\r\n - String: percorso della variabile Global contenente Object o Array\r\n - String: parole separate da punto e virgola (;)\r\n - String: testo del messaggio\r\n\r\n## Show alert (Boolean)\r\n> Visualizza una finestra popup con tasto di conferma\r\n\r\n## Ignore expired messages (Boolean)\r\n> Scarta i messaggi contrassegnati come scaduti, la scadenza è assegnata in base alla data del messaggio\r\n\r\n# Impostazioni da messaggio\r\n> Il messaggio può contenere una o più opzioni e deve essere così strutturato:\r\n- msg.callback.text = String con {{template}}\r\n- msg.callback.show_alert = Boolean\r\n\r\n### Links\r\n - https://core.telegram.org/bots/api#answercallbackquery",
+        "category": "Telegram Bot API",
+        "in": [
+            {
+                "x": 50,
+                "y": 90,
+                "wires": [
+                    {
+                        "id": "1c7a1c48a841034e"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 970,
+                "y": 90,
+                "wires": [
+                    {
+                        "id": "8e84aa422804580e",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 480,
+                "y": 140,
+                "wires": [
+                    {
+                        "id": "654f1d10d172e977",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "text",
+                "type": "str",
+                "value": "Ok {{first_name}}",
+                "ui": {
+                    "icon": "font-awesome/fa-edit",
+                    "label": {
+                        "en-US": "Answer:"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "str",
+                            "json"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "show_alert",
+                "type": "bool",
+                "value": "false",
+                "ui": {
+                    "icon": "font-awesome/fa-exclamation-triangle",
+                    "label": {
+                        "en-US": "Show alert"
+                    },
+                    "type": "checkbox"
+                }
+            },
+            {
+                "name": "ignore_expired_messages",
+                "type": "bool",
+                "value": "true",
+                "ui": {
+                    "icon": "font-awesome/fa-clock-o",
+                    "label": {
+                        "en-US": "Ignore expired messages"
+                    },
+                    "type": "checkbox"
+                }
+            }
+        ],
+        "meta": {
+            "module": "node-red-telegram-bot-api-answer-callback",
+            "version": "1.0.0",
+            "author": "Bruno Leonardi <b.leonardi78@gmail.com>",
+            "desc": "Answer callback",
+            "license": "MIT"
+        },
+        "color": "#3FADB5",
+        "inputLabels": [
+            "Input"
+        ],
+        "outputLabels": [
+            "Response",
+            "Passthru"
+        ],
+        "icon": "font-awesome/fa-commenting",
+        "status": {
+            "x": 930,
+            "y": 140,
+            "wires": [
+                {
+                    "id": "4971dba6614b109a",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "da425b136aca011f",
+        "type": "function",
+        "z": "504c9e2a717ef814",
+        "name": "Answer Callback Query",
+        "func": "/**\n * Telegram Bot Api Javascript for Node-RED\n */\nconst TelegramBotApi = global.get('TelegramBotApi.class')\nconst Bot = new TelegramBotApi(msg)\n\n/**\n * Tools Class Collections Javascript for Node-RED\n */\nconst Tools = global.get('Tools.class')\nconst js = new Tools(msg)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//update status node\nif (msg.payload == \"reset_status_node\") {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"Ready\" })\n    delete msg.payload\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//funziona solo con messaggi telegram\nif (msg.telegram === undefined) {\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"Telegram message not found\" })\n    return null\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//funziona solo se è un messaggio di callback\nif (!msg.telegram.callback_id) return null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nvar TEXT = env.get(\"text\")\nvar SHOW_ALERT = env.get(\"show_alert\")\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\n//ignora i messaggi scaduti\nif (env.get(\"ignore_expired_messages\") && msg.telegram.message_expired) {\n    msg.global_save = false\n    msg.forward = {}\n    msg.forward.method = 'answerCallbackQuery'\n    msg.forward.callback_query_id = msg.telegram.callback_id\n    msg.forward.options = {}\n    msg.forward.options.text = 'Questo messaggio non è più valido'\n    msg.forward.options.show_alert = true\n    node.status({ fill: \"yellow\", shape: \"dot\", text: \"The message has expired\" })\n    node.send(msg)\n    //elimino inline_keyboard\n    msg.forward = {}\n    msg.forward.method = 'deleteMessage'\n    msg.forward.chat_id = msg.telegram.chat_id\n    msg.forward.message_id = msg.telegram.message_id\n    return msg\n}\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nif (msg.callback) {\n    TEXT = msg.callback.text || TEXT\n    SHOW_ALERT = msg.callback.show_alert || SHOW_ALERT\n    delete msg.callback\n} else if (js.IsStringFull(TEXT)) {\n    TEXT = TEXT.trim()\n    let global_object = js.GetGlobalVariable(TEXT)\n    TEXT = (global_object) ? js.GetRandomValue(global_object) : js.GetRandomValue(TEXT)\n} else {\n    TEXT = js.GetRandomValue(TEXT)\n}\n\nif (js.IsStringEmpty(TEXT)) TEXT = null\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nTEXT = TEXT || 'Hai selezionato ' + msg.telegram.content\nTEXT = js.Template(TEXT)\n\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n////////////////////////////////////////////////////////////////////\n\nmsg.global_save = false\nmsg.forward = {}\nmsg.forward.method = 'answerCallbackQuery'\nmsg.forward.callback_query_id = msg.telegram.callback_id\nmsg.forward.options = {}\nmsg.forward.options.text = TEXT\nmsg.forward.options.show_alert = SHOW_ALERT\nnode.status({ fill: \"green\", shape: \"ring\", text: \"Send answer callback message\" })\nreturn msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "node.status({ fill: \"grey\", shape: \"ring\", text: \"Ready\" })",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 90,
+        "wires": [
+            [
+                "8e84aa422804580e"
+            ]
+        ]
+    },
+    {
+        "id": "07fbfb7bd10acfe6",
+        "type": "trigger",
+        "z": "504c9e2a717ef814",
+        "name": "Reset status",
+        "op1": "",
+        "op2": "reset_status_node",
+        "op1type": "nul",
+        "op2type": "str",
+        "duration": "5",
+        "extend": true,
+        "overrideDelay": false,
+        "units": "s",
+        "reset": "",
+        "bytopic": "all",
+        "topic": "topic",
+        "outputs": 1,
+        "x": 310,
+        "y": 40,
+        "wires": [
+            [
+                "da425b136aca011f"
+            ]
+        ]
+    },
+    {
+        "id": "6275301d89456f92",
+        "type": "catch",
+        "z": "504c9e2a717ef814",
+        "name": "",
+        "scope": [
+            "da425b136aca011f",
+            "8e84aa422804580e"
+        ],
+        "uncaught": false,
+        "x": 435,
+        "y": 40,
+        "wires": [
+            [
+                "757928f66008e815"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "757928f66008e815",
+        "type": "function",
+        "z": "504c9e2a717ef814",
+        "name": "error.message",
+        "func": "node.error(msg, msg)",
+        "outputs": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 625,
+        "y": 40,
+        "wires": [],
+        "l": false
+    },
+    {
+        "id": "995e7b87b3b7d52d",
+        "type": "status",
+        "z": "504c9e2a717ef814",
+        "name": "",
+        "scope": [
+            "da425b136aca011f",
+            "8e84aa422804580e"
+        ],
+        "x": 730,
+        "y": 140,
+        "wires": [
+            [
+                "4971dba6614b109a"
+            ]
+        ]
+    },
+    {
+        "id": "4971dba6614b109a",
+        "type": "delay",
+        "z": "504c9e2a717ef814",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 855,
+        "y": 140,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "1c7a1c48a841034e",
+        "type": "function",
+        "z": "504c9e2a717ef814",
+        "name": "Clone",
+        "func": "if (msg.telegram) {\n    var message = { telegram: RED.util.cloneMessage(msg.telegram) }\n    return [RED.util.cloneMessage(msg), message]\n} else {\n    return [RED.util.cloneMessage(msg), msg]\n}",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 150,
+        "y": 90,
+        "wires": [
+            [
+                "07fbfb7bd10acfe6",
+                "da425b136aca011f"
+            ],
+            [
+                "38f63a24204fad66"
+            ]
+        ],
+        "inputLabels": [
+            "msg"
+        ],
+        "outputLabels": [
+            "clone",
+            "original"
+        ],
+        "icon": "font-awesome/fa-clone"
+    },
+    {
+        "id": "8e84aa422804580e",
+        "type": "subflow:0832ecba3b97dcae",
+        "z": "504c9e2a717ef814",
+        "name": "",
+        "env": [
+            {
+                "name": "all_status_node",
+                "type": "bool",
+                "value": "false"
+            }
+        ],
+        "x": 770,
+        "y": 90,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "654f1d10d172e977",
+        "type": "change",
+        "z": "504c9e2a717ef814",
+        "name": "",
+        "rules": [
+            {
+                "t": "delete",
+                "p": "payload",
+                "pt": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 185,
+        "y": 140,
+        "wires": [
+            []
+        ],
+        "l": false
+    },
+    {
+        "id": "38f63a24204fad66",
+        "type": "delay",
+        "z": "504c9e2a717ef814",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "500",
+        "timeoutUnits": "milliseconds",
+        "rate": "2",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "250",
+        "randomLast": "500",
+        "randomUnits": "milliseconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 115,
+        "y": 140,
+        "wires": [
+            [
+                "654f1d10d172e977"
+            ]
+        ],
+        "l": false
+    },
+    {
+        "id": "708c343fb6e55d4e",
+        "type": "subflow:504c9e2a717ef814",
+        "z": "b47fd0e48cfbee58",
+        "name": "",
+        "x": 100,
+        "y": 270,
+        "wires": [
+            [],
+            []
+        ]
+    }
+]
